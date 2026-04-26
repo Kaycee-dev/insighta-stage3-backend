@@ -280,6 +280,7 @@ function createAuthService({ repo, githubProvider, now = () => new Date(), ...op
   return {
     authenticateAccessToken,
     config,
+    consumeWebAuthCode,
     createWebAuthCode,
     createWebState,
     githubAuthorizeUrl,
