@@ -1,0 +1,27 @@
+{
+  "name": "backend-wizards-stage1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HNG14 Backend Wizards Stage 3 - Insighta Labs+ Secure Access API",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "migrate": "node src/migrate.js",
+    "seed": "node src/seed.js",
+    "lint": "node scripts/node-check.js",
+    "test": "node --test test/contract.test.js test/external.test.js test/queryParser.test.js test/stage3.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}
