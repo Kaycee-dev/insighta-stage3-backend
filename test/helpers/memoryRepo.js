@@ -28,6 +28,30 @@ function createMemoryRepo() {
     return 0;
   }
 
+  function matchesFilters(row, options = {}) {
+    if (options.gender && row.gender !== normalizeGender(options.gender)) return false;
+    if (options.age_group && row.age_group !== normalizeAgeGroup(options.age_group)) return false;
+    if (options.country_id && row.country_id !== normalizeCountryId(options.country_id)) return false;
+    if (
+      Array.isArray(options.country_ids) &&
+      options.country_ids.length > 0 &&
+      !options.country_ids.map(normalizeCountryId).includes(row.country_id)
+    ) {
+      return false;
+    }
+    if (options.min_age !== undefined && row.age < options.min_age) return false;
+    if (options.max_age !== undefined && row.age > options.max_age) return false;
+    if (
+      options.min_gender_probability !== undefined &&
+      row.gender_probability < options.min_gender_probability
+    ) return false;
+    if (
+      options.min_country_probability !== undefined &&
+      row.country_probability < options.min_country_probability
+    ) return false;
+    return true;
+  }
+
   return {
     _rows: rows,
     async insertOrGet(profile) {
@@ -54,19 +78,10 @@ function createMemoryRepo() {
     },
     async queryProfiles(options = {}) {
       const filtered = [...rows.values()].filter((row) => {
-        if (options.gender && row.gender !== normalizeGender(options.gender)) return false;
-        if (options.age_group && row.age_group !== normalizeAgeGroup(options.age_group)) return false;
-        if (options.country_id && row.country_id !== normalizeCountryId(options.country_id)) return false;
-        if (options.min_age !== undefined && row.age < options.min_age) return false;
-        if (options.max_age !== undefined && row.age > options.max_age) return false;
-        if (
-          options.min_gender_probability !== undefined &&
-          row.gender_probability < options.min_gender_probability
-        ) return false;
-        if (
-          options.min_country_probability !== undefined &&
-          row.country_probability < options.min_country_probability
-        ) return false;
+        if (!matchesFilters(row, options)) return false;
+        if (Array.isArray(options.any) && options.any.length > 0) {
+          return options.any.some((clause) => matchesFilters(row, clause));
+        }
         return true;
       });
 

@@ -224,6 +224,82 @@ test('GET /api/profiles/search handles age phrases and country matching', async 
   assert.deepEqual(kenya.body.data.map((profile) => profile.name), ['kamau']);
 });
 
+test('GET /api/profiles/search applies inclusive between-age ranges', async () => {
+  const { app } = newApp({
+    zara: { gender: 'female', gender_probability: 0.92, sample_size: 1000, age: 50, country_id: 'TZ', country_probability: 0.9 },
+    zena: { gender: 'female', gender_probability: 0.91, sample_size: 1000, age: 54, country_id: 'TZ', country_probability: 0.9 },
+    zola: { gender: 'female', gender_probability: 0.91, sample_size: 1000, age: 55, country_id: 'TZ', country_probability: 0.9 },
+    zuri: { gender: 'female', gender_probability: 0.91, sample_size: 1000, age: 49, country_id: 'TZ', country_probability: 0.9 },
+    zed: { gender: 'male', gender_probability: 0.91, sample_size: 1000, age: 52, country_id: 'TZ', country_probability: 0.9 },
+  });
+  await seedNames(app, ['zara', 'zena', 'zola', 'zuri', 'zed']);
+
+  const res = await request(app).get(
+    '/api/profiles/search?q=women%20from%20tanzania%20between%20the%20ages%20of%2050%20and%2054%20inclusive'
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.map((profile) => profile.name), ['zara', 'zena']);
+});
+
+test('GET /api/profiles/search applies OR clauses for multiple demographic segments', async () => {
+  const { app } = newApp({
+    akil: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 40, country_id: 'AO', country_probability: 0.9 },
+    abel: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 66, country_id: 'AO', country_probability: 0.9 },
+    amos: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 67, country_id: 'AO', country_probability: 0.9 },
+    afia: { gender: 'female', gender_probability: 0.94, sample_size: 1000, age: 50, country_id: 'AO', country_probability: 0.9 },
+    gigi: { gender: 'female', gender_probability: 0.94, sample_size: 1000, age: 35, country_id: 'GH', country_probability: 0.9 },
+    gala: { gender: 'female', gender_probability: 0.94, sample_size: 1000, age: 36, country_id: 'GH', country_probability: 0.9 },
+    kwesi: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 30, country_id: 'GH', country_probability: 0.9 },
+  });
+  await seedNames(app, ['akil', 'abel', 'amos', 'afia', 'gigi', 'gala', 'kwesi']);
+
+  const res = await request(app).get(
+    '/api/profiles/search?q=40%2B%20men%20from%20angola%20that%20are%20not%20up%20to%2067%20years%20old%20and%20women%20from%20ghana%20that%20are%20younger%20than%2036%20years'
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.map((profile) => profile.name), ['akil', 'abel', 'gigi']);
+});
+
+test('GET /api/profiles/search applies repeated countries and probability thresholds', async () => {
+  const { app } = newApp({
+    akil: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 40, country_id: 'AO', country_probability: 0.9 },
+    kwesi: { gender: 'male', gender_probability: 0.93, sample_size: 1000, age: 30, country_id: 'GH', country_probability: 0.85 },
+    kofi: { gender: 'male', gender_probability: 0.89, sample_size: 1000, age: 30, country_id: 'GH', country_probability: 0.85 },
+    amos: { gender: 'male', gender_probability: 0.94, sample_size: 1000, age: 30, country_id: 'AO', country_probability: 0.79 },
+    afia: { gender: 'female', gender_probability: 0.94, sample_size: 1000, age: 30, country_id: 'GH', country_probability: 0.9 },
+  });
+  await seedNames(app, ['akil', 'kwesi', 'kofi', 'amos', 'afia']);
+
+  const res = await request(app).get(
+    '/api/profiles/search?q=men%20from%20angola%20and%20ghana%20with%20gender%20probability%20at%20least%2090%20percent%20and%20country%20confidence%20at%20least%2080%20percent'
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.map((profile) => profile.name), ['akil', 'kwesi']);
+});
+
+test('GET /api/profiles/search applies every flat NLS field together', async () => {
+  const { app } = newApp({
+    nala: { gender: 'female', gender_probability: 0.82, sample_size: 1000, age: 35, country_id: 'KE', country_probability: 0.75 },
+    nina: { gender: 'female', gender_probability: 0.82, sample_size: 1000, age: 29, country_id: 'KE', country_probability: 0.75 },
+    noor: { gender: 'female', gender_probability: 0.82, sample_size: 1000, age: 46, country_id: 'KE', country_probability: 0.75 },
+    nate: { gender: 'male', gender_probability: 0.82, sample_size: 1000, age: 35, country_id: 'KE', country_probability: 0.75 },
+    niya: { gender: 'female', gender_probability: 0.82, sample_size: 1000, age: 35, country_id: 'NG', country_probability: 0.75 },
+    neha: { gender: 'female', gender_probability: 0.79, sample_size: 1000, age: 35, country_id: 'KE', country_probability: 0.75 },
+    nera: { gender: 'female', gender_probability: 0.82, sample_size: 1000, age: 35, country_id: 'KE', country_probability: 0.69 },
+  });
+  await seedNames(app, ['nala', 'nina', 'noor', 'nate', 'niya', 'neha', 'nera']);
+
+  const res = await request(app).get(
+    '/api/profiles/search?q=adult%20women%20from%20kenya%20at%20least%2030%20years%20old%20not%20older%20than%2045%20with%20gender%20confidence%20is%20at%20least%2080%20percent%20and%20country%20probability%2070%20percent%20or%20above%20highest%20gender%20confidence'
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.map((profile) => profile.name), ['nala']);
+});
+
 test('GET /api/profiles/search omits gender when both genders are mentioned', async () => {
   const { app } = newApp(SEARCH_FIXTURES);
   await seedNames(app, ['ayo', 'zuri', 'teen', 'liam']);
