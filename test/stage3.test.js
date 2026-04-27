@@ -66,6 +66,59 @@ test('admin can create profiles, analyst is read-only', async () => {
   assert.equal(analystList.body.total, 1);
 });
 
+test('analyst DELETE returns 403 and admin DELETE returns 204', async () => {
+  const { adminTokens, analystTokens, app } = await stage3App();
+
+  const created = await api(request(app).post('/api/profiles'), adminTokens.access_token)
+    .send({ name: 'ella' });
+  assert.equal(created.status, 201);
+  const profileId = created.body.data.id;
+
+  const analystDelete = await api(
+    request(app).delete(`/api/profiles/${profileId}`),
+    analystTokens.access_token
+  );
+  assert.equal(analystDelete.status, 403);
+
+  const stillThere = await api(
+    request(app).get(`/api/profiles/${profileId}`),
+    analystTokens.access_token
+  );
+  assert.equal(stillThere.status, 200);
+
+  const adminDelete = await api(
+    request(app).delete(`/api/profiles/${profileId}`),
+    adminTokens.access_token
+  );
+  assert.equal(adminDelete.status, 204);
+
+  const gone = await api(
+    request(app).get(`/api/profiles/${profileId}`),
+    analystTokens.access_token
+  );
+  assert.equal(gone.status, 404);
+});
+
+test('inactive user receives 403 on authenticated requests and refresh', async () => {
+  const { analystTokens, app, authRepo } = await stage3App();
+
+  const [user] = [...authRepo._users.values()].filter((u) => u.username === 'analyst');
+  user.is_active = false;
+
+  const apiHit = await api(
+    request(app).get('/api/profiles'),
+    analystTokens.access_token
+  );
+  assert.equal(apiHit.status, 403);
+  assert.deepEqual(apiHit.body, { status: 'error', message: 'User is inactive' });
+
+  const refresh = await request(app)
+    .post('/auth/refresh')
+    .send({ refresh_token: analystTokens.refresh_token });
+  assert.equal(refresh.status, 403);
+  assert.deepEqual(refresh.body, { status: 'error', message: 'User is inactive' });
+});
+
 test('Stage 3 pagination shape includes total_pages and navigation links', async () => {
   const { adminTokens, analystTokens, app } = await stage3App();
   for (const name of ['ella', 'sarah', 'grace']) {
