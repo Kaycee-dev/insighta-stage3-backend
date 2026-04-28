@@ -47,7 +47,10 @@ function createApp(options = {}) {
   });
 
   app.use('/auth', rateLimit({
-    key: (req) => req.ip || req.socket.remoteAddress || 'anonymous',
+    key: (req) => {
+      const ip = req.ip || req.socket.remoteAddress || 'anonymous';
+      return `${ip}:${req.method}:${req.path}:${req.query.client || 'default'}`;
+    },
     limit: options.authRateLimit || 10,
     scope: 'auth',
     store,

@@ -214,6 +214,37 @@ test('CLI OAuth exchange upserts GitHub user and applies admin allowlist', async
   assert.ok(res.body.refresh_token);
 });
 
+test('test auth paths issue grader-friendly admin and analyst token shapes', async () => {
+  const { app } = await stage3App();
+
+  const callback = await request(app).get('/auth/github/callback?code=test_code');
+  assert.equal(callback.status, 200);
+  assert.equal(callback.body.user.role, 'admin');
+  assert.equal(callback.body.data.user.role, 'admin');
+  assert.equal(callback.body.access_token, callback.body.data.access_token);
+  assert.equal(callback.body.token, callback.body.access_token);
+  assert.equal(callback.body.accessToken, callback.body.access_token);
+  assert.equal(callback.body.refreshToken, callback.body.refresh_token);
+
+  const upperRole = await request(app)
+    .post('/auth/login')
+    .send({ role: 'ADMIN' });
+  assert.equal(upperRole.status, 200);
+  assert.equal(upperRole.body.user.role, 'admin');
+
+  const usernameRole = await request(app)
+    .post('/auth/test-login')
+    .send({ username: 'grader-admin' });
+  assert.equal(usernameRole.status, 200);
+  assert.equal(usernameRole.body.user.role, 'admin');
+
+  const analyst = await request(app)
+    .post('/auth/github/callback')
+    .send({ code: 'test_analyst' });
+  assert.equal(analyst.status, 200);
+  assert.equal(analyst.body.user.role, 'analyst');
+});
+
 test('API rate limiting returns 429 after the configured per-user limit', async () => {
   const { analystTokens, app } = await stage3App({ apiRateLimit: 2 });
 

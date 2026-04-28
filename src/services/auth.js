@@ -214,7 +214,7 @@ function createAuthService({ repo, githubProvider, now = () => new Date(), ...op
   }
 
   async function loginAsTestUser({ username, role } = {}) {
-    const desiredRole = role === 'admin' ? 'admin' : 'analyst';
+    const desiredRole = String(role || '').trim().toLowerCase() === 'admin' ? 'admin' : 'analyst';
     const safeUsername = typeof username === 'string' && username.trim()
       ? username.trim()
       : `test_${desiredRole}`;

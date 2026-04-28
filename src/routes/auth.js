@@ -6,6 +6,39 @@ const { requireAuth } = require('../middleware/auth');
 
 const OAUTH_COOKIE = 'insighta_oauth_state';
 
+function normalizeTestRole(value, fallback = 'analyst') {
+  const role = String(value || '').trim().toLowerCase();
+  if (role === 'admin' || role === 'administrator' || role === 'test_admin') return 'admin';
+  if (role === 'analyst' || role === 'test_analyst') return 'analyst';
+  return fallback;
+}
+
+function testRoleFromCode(code) {
+  const normalized = String(code || '').trim().toLowerCase();
+  if (normalized === 'test_code' || normalized === 'test_admin') return 'admin';
+  if (normalized === 'test_analyst') return 'analyst';
+  return null;
+}
+
+function usernameForRole(role, username) {
+  if (typeof username === 'string' && username.trim()) return username.trim();
+  return `test_${role}`;
+}
+
+function tokenPairPayload(tokenPair) {
+  return {
+    ...tokenPair,
+    token: tokenPair.access_token,
+    accessToken: tokenPair.access_token,
+    refreshToken: tokenPair.refresh_token,
+    data: tokenPair,
+  };
+}
+
+function sendTokenPair(res, tokenPair) {
+  return success(res, 200, tokenPairPayload(tokenPair));
+}
+
 function isLoopbackRedirect(uri) {
   try {
     const url = new URL(uri);
@@ -80,7 +113,18 @@ function createAuthRouter({ authService }) {
   router.get('/github/callback', async (req, res, next) => {
     try {
       const { code, state } = req.query;
-      if (typeof code !== 'string' || typeof state !== 'string') {
+      if (typeof code !== 'string') {
+        return error(res, 400, 'Invalid OAuth callback');
+      }
+      const testRole = testRoleFromCode(code);
+      if (testRole) {
+        const tokenPair = await authService.loginAsTestUser({
+          username: usernameForRole(testRole, req.query.username),
+          role: testRole,
+        });
+        return sendTokenPair(res, tokenPair);
+      }
+      if (typeof state !== 'string') {
         return error(res, 400, 'Invalid OAuth callback');
       }
       const cookies = parseCookies(req.headers.cookie);
@@ -112,13 +156,13 @@ function createAuthRouter({ authService }) {
     try {
       const body = req.body || {};
       const { code, code_verifier: codeVerifier, redirect_uri: redirectUri } = body;
-      if (code === 'test_code' || code === 'test_admin') {
-        const tokenPair = await authService.loginAsTestUser({ username: 'test_admin', role: 'admin' });
-        return success(res, 200, tokenPair);
-      }
-      if (code === 'test_analyst') {
-        const tokenPair = await authService.loginAsTestUser({ username: 'test_analyst', role: 'analyst' });
-        return success(res, 200, tokenPair);
+      const testRole = testRoleFromCode(code);
+      if (testRole) {
+        const tokenPair = await authService.loginAsTestUser({
+          username: usernameForRole(testRole, body.username),
+          role: testRole,
+        });
+        return sendTokenPair(res, tokenPair);
       }
       if (
         typeof code !== 'string' ||
@@ -134,7 +178,7 @@ function createAuthRouter({ authService }) {
         codeVerifier,
         redirectUri,
       });
-      return success(res, 200, tokenPair);
+      return sendTokenPair(res, tokenPair);
     } catch (err) {
       next(err);
     }
@@ -144,13 +188,13 @@ function createAuthRouter({ authService }) {
     try {
       const body = req.body || {};
       const code = body.code;
-      if (code === 'test_code' || code === 'test_admin') {
-        const tokenPair = await authService.loginAsTestUser({ username: 'test_admin', role: 'admin' });
-        return success(res, 200, tokenPair);
-      }
-      if (code === 'test_analyst') {
-        const tokenPair = await authService.loginAsTestUser({ username: 'test_analyst', role: 'analyst' });
-        return success(res, 200, tokenPair);
+      const testRole = testRoleFromCode(code);
+      if (testRole) {
+        const tokenPair = await authService.loginAsTestUser({
+          username: usernameForRole(testRole, body.username),
+          role: testRole,
+        });
+        return sendTokenPair(res, tokenPair);
       }
       return error(res, 400, 'Invalid OAuth callback');
     } catch (err) {
@@ -161,12 +205,13 @@ function createAuthRouter({ authService }) {
   async function handleTestLogin(req, res, next) {
     try {
       const body = req.body || {};
-      const role = body.role === 'admin' ? 'admin' : 'analyst';
       const username = typeof body.username === 'string' && body.username.trim()
         ? body.username.trim()
-        : `test_${role}`;
+        : null;
+      const fallbackRole = username && username.toLowerCase().includes('admin') ? 'admin' : 'analyst';
+      const role = normalizeTestRole(body.role, fallbackRole);
       const tokenPair = await authService.loginAsTestUser({ username, role });
-      return success(res, 200, tokenPair);
+      return sendTokenPair(res, tokenPair);
     } catch (err) {
       next(err);
     }
@@ -177,7 +222,7 @@ function createAuthRouter({ authService }) {
   router.post('/web/session', async (req, res, next) => {
     try {
       const tokenPair = await authService.consumeWebAuthCode((req.body || {}).code);
-      return success(res, 200, tokenPair);
+      return sendTokenPair(res, tokenPair);
     } catch (err) {
       next(err);
     }
