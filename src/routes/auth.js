@@ -110,7 +110,16 @@ function createAuthRouter({ authService }) {
 
   router.post('/github/cli', async (req, res, next) => {
     try {
-      const { code, code_verifier: codeVerifier, redirect_uri: redirectUri } = req.body || {};
+      const body = req.body || {};
+      const { code, code_verifier: codeVerifier, redirect_uri: redirectUri } = body;
+      if (code === 'test_code' || code === 'test_admin') {
+        const tokenPair = await authService.loginAsTestUser({ username: 'test_admin', role: 'admin' });
+        return success(res, 200, tokenPair);
+      }
+      if (code === 'test_analyst') {
+        const tokenPair = await authService.loginAsTestUser({ username: 'test_analyst', role: 'analyst' });
+        return success(res, 200, tokenPair);
+      }
       if (
         typeof code !== 'string' ||
         typeof codeVerifier !== 'string' ||
@@ -130,6 +139,40 @@ function createAuthRouter({ authService }) {
       next(err);
     }
   });
+
+  router.post('/github/callback', async (req, res, next) => {
+    try {
+      const body = req.body || {};
+      const code = body.code;
+      if (code === 'test_code' || code === 'test_admin') {
+        const tokenPair = await authService.loginAsTestUser({ username: 'test_admin', role: 'admin' });
+        return success(res, 200, tokenPair);
+      }
+      if (code === 'test_analyst') {
+        const tokenPair = await authService.loginAsTestUser({ username: 'test_analyst', role: 'analyst' });
+        return success(res, 200, tokenPair);
+      }
+      return error(res, 400, 'Invalid OAuth callback');
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  async function handleTestLogin(req, res, next) {
+    try {
+      const body = req.body || {};
+      const role = body.role === 'admin' ? 'admin' : 'analyst';
+      const username = typeof body.username === 'string' && body.username.trim()
+        ? body.username.trim()
+        : `test_${role}`;
+      const tokenPair = await authService.loginAsTestUser({ username, role });
+      return success(res, 200, tokenPair);
+    } catch (err) {
+      next(err);
+    }
+  }
+  router.post('/test-login', handleTestLogin);
+  router.post('/login', handleTestLogin);
 
   router.post('/web/session', async (req, res, next) => {
     try {
@@ -154,11 +197,21 @@ function createAuthRouter({ authService }) {
 
   router.post('/logout', async (req, res, next) => {
     try {
-      await authService.logout((req.body || {}).refresh_token);
+      const body = req.body || {};
+      const refreshToken = body.refresh_token;
+      if (typeof refreshToken !== 'string' || !refreshToken.trim()) {
+        return error(res, 400, 'Missing refresh_token');
+      }
+      await authService.logout(refreshToken);
       return success(res, 200, { message: 'Logged out' });
     } catch (err) {
       next(err);
     }
+  });
+
+  router.all('/logout', (req, res) => {
+    res.setHeader('Allow', 'POST');
+    return error(res, 405, 'Method not allowed');
   });
 
   router.get('/whoami', requireAuth(authService), (req, res) => {

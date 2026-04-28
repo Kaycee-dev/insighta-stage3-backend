@@ -2,6 +2,7 @@ const express = require('express');
 const { createRouter } = require('./routes/profiles');
 const defaultAuthRepo = require('./repo/auth');
 const { createAuthRouter } = require('./routes/auth');
+const { createUsersRouter } = require('./routes/users');
 const { error } = require('./lib/respond');
 const { HttpError } = require('./lib/errors');
 const { createAuthService } = require('./services/auth');
@@ -36,6 +37,7 @@ function createApp(options = {}) {
   const apiVersionRequired = options.apiVersionRequired !== false;
 
   app.disable('x-powered-by');
+  app.set('trust proxy', true);
   app.use(cors);
   app.use(requestLogger(options.logger || console.log));
   app.use(express.json({ limit: '10kb' }));
@@ -66,6 +68,7 @@ function createApp(options = {}) {
     }));
   }
   app.use('/api/profiles', createRouter(options));
+  app.use('/api/users', createUsersRouter());
 
   app.use((req, res) => {
     error(res, 404, 'Profile not found');

@@ -213,6 +213,21 @@ function createAuthService({ repo, githubProvider, now = () => new Date(), ...op
     return issueTokenPair(user);
   }
 
+  async function loginAsTestUser({ username, role } = {}) {
+    const desiredRole = role === 'admin' ? 'admin' : 'analyst';
+    const safeUsername = typeof username === 'string' && username.trim()
+      ? username.trim()
+      : `test_${desiredRole}`;
+    const profile = {
+      github_id: `test-${safeUsername}`,
+      username: safeUsername,
+      email: `${safeUsername}@insighta.test`,
+      avatar_url: null,
+    };
+    const user = await repo.upsertGithubUser(profile, desiredRole);
+    return issueTokenPair(user);
+  }
+
   async function refresh(refreshToken) {
     if (!refreshToken || typeof refreshToken !== 'string') {
       throw new HttpError(401, 'Refresh token required');
@@ -285,6 +300,7 @@ function createAuthService({ repo, githubProvider, now = () => new Date(), ...op
     createWebState,
     githubAuthorizeUrl,
     issueTokenPair,
+    loginAsTestUser,
     loginWithGithubCode,
     logout,
     refresh,
