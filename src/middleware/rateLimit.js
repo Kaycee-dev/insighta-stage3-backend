@@ -19,8 +19,9 @@ function memoryStore() {
   };
 }
 
-function rateLimit({ limit, windowMs = 60_000, key, scope, store = memoryStore() }) {
+function rateLimit({ limit, windowMs = 60_000, key, scope, store = memoryStore(), skip }) {
   return (req, res, next) => {
+    if (typeof skip === 'function' && skip(req)) return next();
     const keyValue = key(req);
     const bucket = store.hit(`${scope}:${keyValue}`, windowMs);
     res.setHeader('X-RateLimit-Limit', String(limit));

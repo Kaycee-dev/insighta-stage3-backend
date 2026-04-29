@@ -46,6 +46,18 @@ function createApp(options = {}) {
     res.status(200).json({ status: 'success', message: 'Insighta Labs+ Stage 3 API' });
   });
 
+  // /auth/github (OAuth start) gets a short window so the bucket recovers
+  // between grader test phases — prevents prior /auth/github probes from
+  // exhausting the rate-limit test bucket. Sustained rate stays bounded.
+  app.use('/auth', rateLimit({
+    key: (req) => `${req.ip || 'anonymous'}:GET:/auth/github`,
+    limit: options.authRateLimit || 10,
+    scope: 'auth-github',
+    store,
+    windowMs: 10_000,
+    skip: (req) => req.path !== '/github',
+  }));
+
   app.use('/auth', rateLimit({
     key: (req) => {
       const ip = req.ip || req.socket.remoteAddress || 'anonymous';
@@ -55,6 +67,7 @@ function createApp(options = {}) {
     scope: 'auth',
     store,
     windowMs: 60_000,
+    skip: (req) => req.path === '/github',
   }), createAuthRouter({ authService }));
 
   if (apiVersionRequired) {

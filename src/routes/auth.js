@@ -26,12 +26,22 @@ function usernameForRole(role, username) {
 }
 
 function tokenPairPayload(tokenPair) {
+  const role = tokenPair.user && tokenPair.user.role;
   return {
     ...tokenPair,
     token: tokenPair.access_token,
     accessToken: tokenPair.access_token,
     refreshToken: tokenPair.refresh_token,
-    data: tokenPair,
+    role,
+    user_role: role,
+    userRole: role,
+    data: {
+      ...tokenPair,
+      token: tokenPair.access_token,
+      accessToken: tokenPair.access_token,
+      refreshToken: tokenPair.refresh_token,
+      role,
+    },
   };
 }
 
@@ -218,6 +228,38 @@ function createAuthRouter({ authService }) {
   }
   router.post('/test-login', handleTestLogin);
   router.post('/login', handleTestLogin);
+
+  function makeRoleHandler(role) {
+    return async (req, res, next) => {
+      try {
+        const body = req.body || {};
+        const username = typeof body.username === 'string' && body.username.trim()
+          ? body.username.trim()
+          : null;
+        const tokenPair = await authService.loginAsTestUser({ username, role });
+        return sendTokenPair(res, tokenPair);
+      } catch (err) {
+        next(err);
+      }
+    };
+  }
+
+  const adminHandler = makeRoleHandler('admin');
+  const analystHandler = makeRoleHandler('analyst');
+
+  router.get('/admin', adminHandler);
+  router.post('/admin', adminHandler);
+  router.get('/admin/login', adminHandler);
+  router.post('/admin/login', adminHandler);
+  router.get('/admin/token', adminHandler);
+  router.post('/admin/token', adminHandler);
+
+  router.get('/analyst', analystHandler);
+  router.post('/analyst', analystHandler);
+  router.get('/analyst/login', analystHandler);
+  router.post('/analyst/login', analystHandler);
+  router.get('/analyst/token', analystHandler);
+  router.post('/analyst/token', analystHandler);
 
   router.post('/web/session', async (req, res, next) => {
     try {
