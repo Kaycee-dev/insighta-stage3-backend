@@ -54,12 +54,21 @@ async function fetchNationalize(name) {
 }
 
 async function enrichName(name) {
-  const [g, a, n] = await Promise.all([
+  const [g, a, n] = await Promise.allSettled([
     fetchGenderize(name),
     fetchAgify(name),
     fetchNationalize(name),
   ]);
-  return { ...g, ...a, ...n };
+  const gender = g.status === 'fulfilled'
+    ? g.value
+    : { gender: 'unknown', gender_probability: 0, sample_size: 0 };
+  const age = a.status === 'fulfilled'
+    ? a.value
+    : { age: 0 };
+  const nationality = n.status === 'fulfilled'
+    ? n.value
+    : { country_id: 'US', country_probability: 0 };
+  return { ...gender, ...age, ...nationality };
 }
 
 module.exports = { enrichName, fetchGenderize, fetchAgify, fetchNationalize };
