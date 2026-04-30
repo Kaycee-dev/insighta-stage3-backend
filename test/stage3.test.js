@@ -161,7 +161,7 @@ test('refresh tokens rotate and cannot be reused', async () => {
     .post('/auth/refresh')
     .send({ refresh_token: analystTokens.refresh_token });
   assert.equal(refreshed.status, 200);
-  assert.deepEqual(Object.keys(refreshed.body).sort(), ['access_token', 'refresh_token', 'status']);
+  assert.deepEqual(Object.keys(refreshed.body).sort(), ['accessToken', 'access_token', 'refreshToken', 'refresh_token', 'status']);
   assert.equal(refreshed.body.status, 'success');
   assert.ok(refreshed.body.access_token);
   assert.ok(refreshed.body.refresh_token);

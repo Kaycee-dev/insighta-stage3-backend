@@ -272,10 +272,14 @@ function createAuthRouter({ authService }) {
 
   router.post('/refresh', async (req, res, next) => {
     try {
-      const tokenPair = await authService.refresh((req.body || {}).refresh_token);
+      const body = req.body || {};
+      const provided = body.refresh_token || body.refreshToken;
+      const tokenPair = await authService.refresh(provided);
       return success(res, 200, {
         access_token: tokenPair.access_token,
         refresh_token: tokenPair.refresh_token,
+        accessToken: tokenPair.access_token,
+        refreshToken: tokenPair.refresh_token,
       });
     } catch (err) {
       next(err);
@@ -285,7 +289,7 @@ function createAuthRouter({ authService }) {
   router.post('/logout', async (req, res, next) => {
     try {
       const body = req.body || {};
-      const refreshToken = body.refresh_token;
+      const refreshToken = body.refresh_token || body.refreshToken;
       if (typeof refreshToken !== 'string' || !refreshToken.trim()) {
         return error(res, 400, 'Missing refresh_token');
       }
